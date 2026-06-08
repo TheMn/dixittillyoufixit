@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "isolatedModules": true,
@@ -8,7 +8,6 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ESNext"],
-    "types": ["vitest/globals"],
     "skipLibCheck": true
   }
 }
