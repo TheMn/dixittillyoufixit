@@ -15,7 +15,7 @@
 ## PHASE 1 — Project Foundation
 
 ### Task 1 — Project Scaffold & Test Runner Setup
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Setup
 **Tests**: Unit (smoke)
 
@@ -371,7 +371,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 
 | # | Task | Phase | Test Types | Status |
 |---|---|---|---|---|
-| 1 | Project Scaffold | Foundation | Unit (smoke) | ⬜ |
+| 1 | Project Scaffold | Foundation | Unit (smoke) | ✅ |
 | 2 | i18n System | Foundation | Unit | ⬜ |
 | 3 | Sheets Client | Foundation | Unit, Integration | ⬜ |
 | 4 | Scoring Algorithm | Game Engine | Unit (exhaustive) | ⬜ |
