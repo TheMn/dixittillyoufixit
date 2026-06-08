@@ -8,7 +8,7 @@
 
 ---
 
-## Current Task: → Task 1
+## Current Task: → Task 2
 
 ---
 
@@ -38,7 +38,7 @@
 ---
 
 ### Task 2 — i18n System
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Feature + Unit Tests
 **Tests**: Unit
 
@@ -372,7 +372,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 | # | Task | Phase | Test Types | Status |
 |---|---|---|---|---|
 | 1 | Project Scaffold | Foundation | Unit (smoke) | ✅ |
-| 2 | i18n System | Foundation | Unit | ⬜ |
+| 2 | i18n System | Foundation | Unit | ✅ |
 | 3 | Sheets Client | Foundation | Unit, Integration | ⬜ |
 | 4 | Scoring Algorithm | Game Engine | Unit (exhaustive) | ⬜ |
 | 5 | Game Engine | Game Engine | Unit | ⬜ |
