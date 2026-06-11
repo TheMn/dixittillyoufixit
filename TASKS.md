@@ -8,7 +8,7 @@
 
 ---
 
-## Current Task: → Task 2
+## Current Task: → Task 3
 
 ---
 
@@ -59,7 +59,7 @@
 ---
 
 ### Task 3 — Google Sheets Client Abstraction
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Feature + Unit + Integration Tests
 **Tests**: Unit (mocked), Integration (real test sheet)
 
@@ -373,7 +373,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 |---|---|---|---|---|
 | 1 | Project Scaffold | Foundation | Unit (smoke) | ✅ |
 | 2 | i18n System | Foundation | Unit | ✅ |
-| 3 | Sheets Client | Foundation | Unit, Integration | ⬜ |
+| 3 | Sheets Client | Foundation | Unit, Integration | ✅ |
 | 4 | Scoring Algorithm | Game Engine | Unit (exhaustive) | ⬜ |
 | 5 | Game Engine | Game Engine | Unit | ⬜ |
 | 6 | Round Lifecycle | Game Engine | Unit, Integration | ⬜ |
