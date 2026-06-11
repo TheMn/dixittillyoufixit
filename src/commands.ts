@@ -414,23 +414,16 @@ export function registerCommands(bot: Bot<DixitContext>): void {
       return;
     }
 
-    // Deal 6 cards to each player from the available deck
+    // Deal up to 6 cards to each player from available deck; start even if no cards are ready yet.
     const available = getAvailableCards(ctx.sheets);
-    const totalNeeded = players.length * 6;
-    if (available.length < totalNeeded) {
-      await ctx.reply(t("error.generic", lang));
-      return;
-    }
-
     let cursor = 0;
-    for (const player of players) {
+    const dealtPlayers = players.map(p => {
       const hand = available.slice(cursor, cursor + 6).map(c => c.card_id);
-      cursor += 6;
-      for (const cardId of hand) {
-        updateCard(ctx.sheets, cardId, { in_use: true });
-      }
-      updatePlayer(ctx.sheets, game.game_id, player.user_id, { hand });
-    }
+      cursor += hand.length;
+      for (const cardId of hand) updateCard(ctx.sheets, cardId, { in_use: true });
+      if (hand.length > 0) updatePlayer(ctx.sheets, game.game_id, p.user_id, { hand });
+      return { ...p, hand };
+    });
 
     const firstStorytellerId = players[0].user_id;
     updateGame(ctx.sheets, game.game_id, {
@@ -440,11 +433,6 @@ export function registerCommands(bot: Bot<DixitContext>): void {
     });
 
     await ctx.reply(t("game.started", lang));
-
-    const dealtPlayers = players.map((p, i) => ({
-      ...p,
-      hand: available.slice(i * 6, i * 6 + 6).map(c => c.card_id),
-    }));
 
     await beginRound(
       ctx.sheets,
@@ -456,25 +444,26 @@ export function registerCommands(bot: Bot<DixitContext>): void {
     );
   });
 
-  // Storyteller sends their clue text; bot stores it and shows card selection keyboard
-  bot.on("message:text", async (ctx) => {
-    if (!ctx.from) return;
+  // Storyteller sends their clue text; bot stores it and shows card selection keyboard.
+  // Must call next() for non-clue messages so subsequent command handlers (/stats, etc.) still run.
+  bot.on("message:text", async (ctx, next) => {
+    if (!ctx.from) { await next(); return; }
     const chatId = String(ctx.chat.id);
     const userId = String(ctx.from.id);
     const lang = "en";
 
     const game = getActiveGameByChat(ctx.sheets, chatId);
-    if (!game || game.status !== "active") return;
+    if (!game || game.status !== "active") { await next(); return; }
 
     const round = getCurrentRound(ctx.sheets, game.game_id);
-    if (!round || round.status !== "waiting_clue") return;
-    if (round.storyteller_id !== userId) return;
+    if (!round || round.status !== "waiting_clue") { await next(); return; }
+    if (round.storyteller_id !== userId) { await next(); return; }
 
     const clue = ctx.message.text;
     pendingClues.set(round.round_id, clue);
 
     const player = getPlayer(ctx.sheets, game.game_id, userId);
-    if (!player || player.hand.length === 0) return;
+    if (!player || player.hand.length === 0) { await next(); return; }
 
     await ctx.reply(submitCardPromptMessage(clue, lang), {
       reply_markup: cardSelectionKeyboard(game.game_id, player.hand),
