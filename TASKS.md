@@ -197,7 +197,7 @@ Each must implement full CRUD against the schema in `CLAUDE.md`.
 ---
 
 ### Task 9 — Inline Keyboards & Callbacks
-**Status**: 🔄 In Progress
+**Status**: ✅ Done
 **Type**: Feature + API Tests
 **Tests**: API (msw)
 
@@ -379,7 +379,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 | 6 | Round Lifecycle | Game Engine | Unit, Integration | ✅ |
 | 7 | Sheets CRUD | Sheets | Integration, Unit | ✅ |
 | 8 | Bot Commands | Telegram | API (msw) | ✅ |
-| 9 | Keyboards & Callbacks | Telegram | API (msw) | 🔄 |
+| 9 | Keyboards & Callbacks | Telegram | API (msw) | ✅ |
 | 10 | Full Message Flow | Telegram | Integration | ⬜ |
 | 11 | Playwright Setup + E2E Round | E2E | Playwright | ⬜ |
 | 12 | Leaderboard E2E | E2E | Playwright | ⬜ |
