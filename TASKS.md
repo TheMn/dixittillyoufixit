@@ -104,7 +104,7 @@
 ---
 
 ### Task 5 — Game Engine (State Machine)
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Feature + Unit Tests
 **Tests**: Unit
 
@@ -375,7 +375,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 | 2 | i18n System | Foundation | Unit | ✅ |
 | 3 | Sheets Client | Foundation | Unit, Integration | ✅ |
 | 4 | Scoring Algorithm | Game Engine | Unit (exhaustive) | ✅ |
-| 5 | Game Engine | Game Engine | Unit | ⬜ |
+| 5 | Game Engine | Game Engine | Unit | ✅ |
 | 6 | Round Lifecycle | Game Engine | Unit, Integration | ⬜ |
 | 7 | Sheets CRUD | Sheets | Integration, Unit | ⬜ |
 | 8 | Bot Commands | Telegram | API (msw) | ⬜ |
