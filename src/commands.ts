@@ -1,22 +1,15 @@
-import type { Update } from "@grammyjs/types";
+import { Bot, Context } from "grammy";
 import { ISheetsClient } from "./sheets/client";
 import { t } from "./i18n/index";
-import { sendMessage } from "./telegram/api";
-import { getActiveGameByChat, createGame, updateGame } from "./sheets/games";
+import { getActiveGameByChat, createGame as createGameRecord, updateGame } from "./sheets/games";
 import { getPlayer, createPlayer, getGamePlayers } from "./sheets/players";
 import { getLeaderboardEntry, getTopPlayers } from "./sheets/leaderboard";
-import { addPlayer, startGame, MIN_PLAYERS, MAX_PLAYERS } from "./game/engine";
+import { addPlayer, startGame } from "./game/engine";
 import { GameState, GamePlayer } from "./game/state";
 import { GameRecord } from "./sheets/games";
 import { PlayerRecord } from "./sheets/players";
 
-export interface CommandDeps {
-  sheets: ISheetsClient;
-}
-
-function extractMessage(update: Update) {
-  return update.message ?? update.edited_message ?? null;
-}
+export type DixitContext = Context & { sheets: ISheetsClient };
 
 function gameRecordToState(game: GameRecord, players: PlayerRecord[]): GameState {
   return {
@@ -40,158 +33,116 @@ function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function handleStart(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg) return;
+export function registerCommands(bot: Bot<DixitContext>): void {
+  bot.command("start", async (ctx) => {
+    const lang = "en";
+    await ctx.reply(t("player.welcome", lang));
+  });
 
-  const lang = "en";
-  await sendMessage({ chat_id: msg.chat.id, text: t("player.welcome", lang) });
-}
+  bot.command("newgame", async (ctx) => {
+    const chatId = String(ctx.chat.id);
+    const lang = "en";
 
-export async function handleNewGame(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg) return;
-
-  const chatId = String(msg.chat.id);
-  const lang = "en";
-
-  const existing = getActiveGameByChat(deps.sheets, chatId);
-  if (existing) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("game.already_active", lang) });
-    return;
-  }
-
-  const game: GameRecord = {
-    game_id: generateId(),
-    chat_id: chatId,
-    status: "lobby",
-    current_round: 0,
-    storyteller_id: "",
-    created_at: new Date().toISOString(),
-  };
-  createGame(deps.sheets, game);
-
-  await sendMessage({ chat_id: msg.chat.id, text: t("game.created", lang) });
-}
-
-export async function handleJoin(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg || !msg.from) return;
-
-  const chatId = String(msg.chat.id);
-  const userId = String(msg.from.id);
-  const username = msg.from.username ?? msg.from.first_name ?? userId;
-  const lang = "en";
-
-  const game = getActiveGameByChat(deps.sheets, chatId);
-  if (!game) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("game.not_found", lang) });
-    return;
-  }
-
-  const existingPlayer = getPlayer(deps.sheets, game.game_id, userId);
-  if (existingPlayer) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("player.already_joined", lang) });
-    return;
-  }
-
-  const players = getGamePlayers(deps.sheets, game.game_id);
-  const state = gameRecordToState(game, players);
-  const result = addPlayer(state, { id: userId, username });
-
-  if (!result.ok) {
-    if (result.error === "game_full") {
-      await sendMessage({ chat_id: msg.chat.id, text: t("player.full", lang) });
-    } else {
-      await sendMessage({ chat_id: msg.chat.id, text: t("error.generic", lang) });
+    const existing = getActiveGameByChat(ctx.sheets, chatId);
+    if (existing) {
+      await ctx.reply(t("game.already_active", lang));
+      return;
     }
-    return;
-  }
 
-  createPlayer(deps.sheets, {
-    game_id: game.game_id,
-    user_id: userId,
-    username,
-    hand: [],
-    score: 0,
-    lang,
+    const game: GameRecord = {
+      game_id: generateId(),
+      chat_id: chatId,
+      status: "lobby",
+      current_round: 0,
+      storyteller_id: "",
+      created_at: new Date().toISOString(),
+    };
+    createGameRecord(ctx.sheets, game);
+    await ctx.reply(t("game.created", lang));
   });
 
-  await sendMessage({
-    chat_id: msg.chat.id,
-    text: t("player.joined", lang, { username }),
-  });
-}
+  bot.command("join", async (ctx) => {
+    const chatId = String(ctx.chat.id);
+    const userId = String(ctx.from?.id ?? "");
+    const username = ctx.from?.username ?? ctx.from?.first_name ?? userId;
+    const lang = "en";
 
-export async function handleStartGame(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg) return;
-
-  const chatId = String(msg.chat.id);
-  const lang = "en";
-
-  const game = getActiveGameByChat(deps.sheets, chatId);
-  if (!game) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("game.not_found", lang) });
-    return;
-  }
-
-  const players = getGamePlayers(deps.sheets, game.game_id);
-  const state = gameRecordToState(game, players);
-  const result = startGame(state);
-
-  if (!result.ok) {
-    if (result.error === "not_enough_players") {
-      await sendMessage({ chat_id: msg.chat.id, text: t("game.not_enough_players", lang) });
-    } else {
-      await sendMessage({ chat_id: msg.chat.id, text: t("error.generic", lang) });
+    const game = getActiveGameByChat(ctx.sheets, chatId);
+    if (!game) {
+      await ctx.reply(t("game.not_found", lang));
+      return;
     }
-    return;
-  }
 
-  updateGame(deps.sheets, game.game_id, { status: "active" });
-  await sendMessage({ chat_id: msg.chat.id, text: t("game.started", lang) });
-}
+    const existingPlayer = getPlayer(ctx.sheets, game.game_id, userId);
+    if (existingPlayer) {
+      await ctx.reply(t("player.already_joined", lang));
+      return;
+    }
 
-export async function handleStats(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg || !msg.from) return;
+    const players = getGamePlayers(ctx.sheets, game.game_id);
+    const state = gameRecordToState(game, players);
+    const result = addPlayer(state, { id: userId, username });
 
-  const userId = String(msg.from.id);
-  const lang = "en";
+    if (!result.ok) {
+      if (result.error === "game_full") {
+        await ctx.reply(t("player.full", lang));
+      } else {
+        await ctx.reply(t("error.generic", lang));
+      }
+      return;
+    }
 
-  const entry = getLeaderboardEntry(deps.sheets, userId);
-  if (!entry) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("leaderboard.empty", lang) });
-    return;
-  }
-
-  const text = t("leaderboard.entry", lang, {
-    rank: "-",
-    username: entry.username,
-    score: entry.total_score,
-    wins: entry.total_wins,
+    createPlayer(ctx.sheets, {
+      game_id: game.game_id,
+      user_id: userId,
+      username,
+      hand: [],
+      score: 0,
+      lang,
+    });
+    await ctx.reply(t("player.joined", lang, { username }));
   });
-  await sendMessage({ chat_id: msg.chat.id, text });
-}
 
-export async function handleLeaderboard(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  if (!msg) return;
+  bot.command("startgame", async (ctx) => {
+    const chatId = String(ctx.chat.id);
+    const lang = "en";
 
-  const lang = "en";
-  const top = getTopPlayers(deps.sheets, 5);
+    const game = getActiveGameByChat(ctx.sheets, chatId);
+    if (!game) {
+      await ctx.reply(t("game.not_found", lang));
+      return;
+    }
 
-  if (top.length === 0) {
-    await sendMessage({ chat_id: msg.chat.id, text: t("leaderboard.empty", lang) });
-    return;
-  }
+    const players = getGamePlayers(ctx.sheets, game.game_id);
+    const state = gameRecordToState(game, players);
+    const result = startGame(state);
 
-  const lines = [t("leaderboard.title", lang)];
-  top.forEach((entry, i) => {
-    lines.push(
+    if (!result.ok) {
+      if (result.error === "not_enough_players") {
+        await ctx.reply(t("game.not_enough_players", lang));
+      } else {
+        await ctx.reply(t("error.generic", lang));
+      }
+      return;
+    }
+
+    updateGame(ctx.sheets, game.game_id, { status: "active" });
+    await ctx.reply(t("game.started", lang));
+  });
+
+  bot.command("stats", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    const lang = "en";
+
+    const entry = getLeaderboardEntry(ctx.sheets, userId);
+    if (!entry) {
+      await ctx.reply(t("leaderboard.empty", lang));
+      return;
+    }
+
+    await ctx.reply(
       t("leaderboard.entry", lang, {
-        rank: i + 1,
+        rank: "-",
         username: entry.username,
         score: entry.total_score,
         wins: entry.total_wins,
@@ -199,27 +150,36 @@ export async function handleLeaderboard(update: Update, deps: CommandDeps): Prom
     );
   });
 
-  await sendMessage({ chat_id: msg.chat.id, text: lines.join("\n") });
+  bot.command("leaderboard", async (ctx) => {
+    const lang = "en";
+    const top = getTopPlayers(ctx.sheets, 5);
+
+    if (top.length === 0) {
+      await ctx.reply(t("leaderboard.empty", lang));
+      return;
+    }
+
+    const lines = [t("leaderboard.title", lang)];
+    top.forEach((entry, i) => {
+      lines.push(
+        t("leaderboard.entry", lang, {
+          rank: i + 1,
+          username: entry.username,
+          score: entry.total_score,
+          wins: entry.total_wins,
+        })
+      );
+    });
+    await ctx.reply(lines.join("\n"));
+  });
 }
 
-export async function dispatch(update: Update, deps: CommandDeps): Promise<void> {
-  const msg = extractMessage(update);
-  const text = msg?.text ?? "";
-
-  const command = text.split(" ")[0].split("@")[0];
-
-  switch (command) {
-    case "/start":
-      return handleStart(update, deps);
-    case "/newgame":
-      return handleNewGame(update, deps);
-    case "/join":
-      return handleJoin(update, deps);
-    case "/startgame":
-      return handleStartGame(update, deps);
-    case "/stats":
-      return handleStats(update, deps);
-    case "/leaderboard":
-      return handleLeaderboard(update, deps);
-  }
+export function createBot(sheets: ISheetsClient, token: string): Bot<DixitContext> {
+  const bot = new Bot<DixitContext>(token);
+  bot.use(async (ctx, next) => {
+    ctx.sheets = sheets;
+    await next();
+  });
+  registerCommands(bot);
+  return bot;
 }
