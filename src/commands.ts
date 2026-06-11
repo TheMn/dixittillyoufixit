@@ -3,17 +3,39 @@ import { ISheetsClient } from "./sheets/client";
 import { t } from "./i18n/index";
 import { getGame, getActiveGameByChat, createGame as createGameRecord, updateGame } from "./sheets/games";
 import { getPlayer, createPlayer, getGamePlayers, updatePlayer } from "./sheets/players";
-import { getCurrentRound, updateRound } from "./sheets/rounds";
+import { getCurrentRound, updateRound, createRound as createRoundRecord } from "./sheets/rounds";
 import type { RoundRecord } from "./sheets/rounds";
-import { submitCard, submitVote } from "./game/rounds";
+import { getAvailableCards, updateCard } from "./sheets/cards";
+import { submitCard, submitVote, submitClue } from "./game/rounds";
 import type { RoundState } from "./game/rounds";
 import { getLeaderboardEntry, getTopPlayers } from "./sheets/leaderboard";
 import { addPlayer, startGame } from "./game/engine";
 import { GameState, GamePlayer } from "./game/state";
 import { GameRecord } from "./sheets/games";
 import { PlayerRecord } from "./sheets/players";
+import { processRoundEnd } from "./game/flow";
+import { sendMessage } from "./telegram/api";
+import { cardSelectionKeyboard, votingKeyboard } from "./telegram/keyboards";
+import {
+  roundStartMessage,
+  storytellerPromptMessage,
+  submitCardPromptMessage,
+  votePromptMessage,
+  revealMessage,
+  nextRoundMessage,
+  gameOverMessage,
+} from "./telegram/messages";
+import { shuffle } from "./helpers";
 
 export type DixitContext = Context & { sheets: ISheetsClient };
+
+// Pending clues from storytellers: roundId -> clue text
+// Stored in memory between the storyteller's text message and card selection callback.
+const pendingClues = new Map<string, string>();
+
+function generateId(): string {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function gameRecordToState(game: GameRecord, players: PlayerRecord[]): GameState {
   return {
@@ -31,10 +53,6 @@ function gameRecordToState(game: GameRecord, players: PlayerRecord[]): GameState
     storytellerIndex: 0,
     createdAt: 0,
   };
-}
-
-function generateId(): string {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function roundRecordToState(
@@ -56,8 +74,60 @@ function roundRecordToState(
   };
 }
 
+// Creates a new round record in Sheets and sends round-start messages to the group and storyteller.
+async function beginRound(
+  sheets: ISheetsClient,
+  game: GameRecord,
+  roundNum: number,
+  storytellerId: string,
+  players: PlayerRecord[],
+  lang: "en" | "fa"
+): Promise<void> {
+  const roundId = generateId();
+  const playerIds = players.map(p => p.user_id);
+
+  createRoundRecord(sheets, {
+    round_id: roundId,
+    game_id: game.game_id,
+    round_num: roundNum,
+    clue: "",
+    storyteller_card: "",
+    submissions: {},
+    votes: {},
+    status: "waiting_clue",
+  });
+
+  const storyteller = players.find(p => p.user_id === storytellerId);
+  const storytellerName = storyteller?.username ?? storytellerId;
+
+  await sendMessage({
+    chat_id: game.chat_id,
+    text: roundStartMessage(roundNum, lang),
+  });
+  await sendMessage({
+    chat_id: game.chat_id,
+    text: storytellerPromptMessage(storytellerName, lang),
+  });
+
+  // Send private card keyboards to all players (storyteller needs to send clue text first)
+  for (const p of players) {
+    if (p.hand.length > 0) {
+      await sendMessage({
+        chat_id: p.user_id,
+        text: p.user_id === storytellerId
+          ? storytellerPromptMessage(p.username, lang)
+          : t("round.submit_card", lang, { clue: "..." }),
+        reply_markup: cardSelectionKeyboard(game.game_id, p.hand),
+      });
+    }
+  }
+
+  void playerIds; // suppress unused warning — stored in round record implicitly via playerIds
+}
+
 export function registerCallbacks(bot: Bot<DixitContext>): void {
-  // select_card:{gameId}:{cardId} — player submits a card for the current round
+  // select_card:{gameId}:{cardId}
+  // Handles both storyteller card selection (waiting_clue) and player submission (waiting_submissions).
   bot.callbackQuery(/^select_card:/, async (ctx) => {
     const [, gameId, cardId] = ctx.callbackQuery.data.split(":");
     const userId = String(ctx.from.id);
@@ -81,8 +151,44 @@ export function registerCallbacks(bot: Bot<DixitContext>): void {
 
     const players = getGamePlayers(ctx.sheets, gameId);
     const roundState = roundRecordToState(roundRecord, game, players);
-    const result = submitCard(roundState, userId, cardId);
 
+    // Storyteller selects their card after sending a clue text message
+    if (roundState.phase === "waiting_clue" && userId === roundState.storytellerId) {
+      const clue = pendingClues.get(roundState.roundId);
+      if (!clue) {
+        await ctx.answerCallbackQuery({ text: t("round.clue_first", lang) });
+        return;
+      }
+
+      const result = submitClue(roundState, userId, clue, cardId);
+      if (!result.ok) {
+        await ctx.answerCallbackQuery({ text: t("error.generic", lang) });
+        return;
+      }
+
+      pendingClues.delete(roundState.roundId);
+      updateRound(ctx.sheets, roundRecord.round_id, {
+        clue: result.state.clue ?? "",
+        storyteller_card: result.state.storytellerCardId ?? "",
+        status: result.state.phase,
+      });
+
+      // Prompt non-storyteller players privately to submit a card
+      const nonStorytellers = players.filter(p => p.user_id !== userId);
+      for (const player of nonStorytellers) {
+        await sendMessage({
+          chat_id: player.user_id,
+          text: submitCardPromptMessage(clue, lang),
+          reply_markup: cardSelectionKeyboard(gameId, player.hand),
+        });
+      }
+
+      await ctx.answerCallbackQuery({ text: t("callback.card_selected", lang) });
+      return;
+    }
+
+    // Non-storyteller submits a card during waiting_submissions
+    const result = submitCard(roundState, userId, cardId);
     if (!result.ok) {
       const key = result.error === "already_submitted" ? "callback.already_submitted" : "error.generic";
       await ctx.answerCallbackQuery({ text: t(key, lang) });
@@ -93,10 +199,24 @@ export function registerCallbacks(bot: Bot<DixitContext>): void {
       submissions: result.state.submissions,
       status: result.state.phase,
     });
+
+    // All submissions received — shuffle cards and send voting keyboard to group
+    if (result.state.phase === "waiting_votes") {
+      const allCards = shuffle([
+        result.state.storytellerCardId!,
+        ...Object.values(result.state.submissions),
+      ]);
+      await sendMessage({
+        chat_id: game.chat_id,
+        text: votePromptMessage(lang),
+        reply_markup: votingKeyboard(gameId, allCards),
+      });
+    }
+
     await ctx.answerCallbackQuery({ text: t("callback.card_selected", lang) });
   });
 
-  // vote_card:{gameId}:{cardId} — player votes for the storyteller's card
+  // vote_card:{gameId}:{cardId}
   bot.callbackQuery(/^vote_card:/, async (ctx) => {
     const [, gameId, cardId] = ctx.callbackQuery.data.split(":");
     const userId = String(ctx.from.id);
@@ -132,10 +252,57 @@ export function registerCallbacks(bot: Bot<DixitContext>): void {
       votes: result.state.votes,
       status: result.state.phase,
     });
+
     await ctx.answerCallbackQuery({ text: t("callback.vote_recorded", lang) });
+
+    // All votes in — reveal results and advance the game
+    if (result.state.phase === "revealing") {
+      const updatedRoundRecord: RoundRecord = {
+        ...roundRecord,
+        votes: result.state.votes,
+        status: "revealing",
+      };
+
+      const flowResult = processRoundEnd(ctx.sheets, game, updatedRoundRecord, players);
+
+      // Build score entries for the reveal message
+      const scoreEntries = flowResult.updatedPlayers.map(p => {
+        const original = players.find(orig => orig.user_id === p.user_id)!;
+        return {
+          username: p.username,
+          delta: p.score - original.score,
+          total: p.score,
+        };
+      });
+
+      await sendMessage({
+        chat_id: game.chat_id,
+        text: revealMessage(scoreEntries, lang),
+      });
+
+      if (flowResult.gameDone) {
+        await sendMessage({
+          chat_id: game.chat_id,
+          text: gameOverMessage(
+            { username: flowResult.winner!.username, score: flowResult.winner!.score },
+            lang
+          ),
+        });
+      } else {
+        await sendMessage({ chat_id: game.chat_id, text: nextRoundMessage(lang) });
+        await beginRound(
+          ctx.sheets,
+          { ...game, current_round: flowResult.nextRoundNum, storyteller_id: flowResult.nextStorytellerId },
+          flowResult.nextRoundNum,
+          flowResult.nextStorytellerId,
+          flowResult.updatedPlayers,
+          lang
+        );
+      }
+    }
   });
 
-  // set_lang:{gameId}:{lang} — player switches their language preference
+  // set_lang:{gameId}:{lang}
   bot.callbackQuery(/^set_lang:/, async (ctx) => {
     const parts = ctx.callbackQuery.data.split(":");
     const gameId = parts[1];
@@ -247,8 +414,71 @@ export function registerCommands(bot: Bot<DixitContext>): void {
       return;
     }
 
-    updateGame(ctx.sheets, game.game_id, { status: "active" });
+    // Deal 6 cards to each player from the available deck
+    const available = getAvailableCards(ctx.sheets);
+    const totalNeeded = players.length * 6;
+    if (available.length < totalNeeded) {
+      await ctx.reply(t("error.generic", lang));
+      return;
+    }
+
+    let cursor = 0;
+    for (const player of players) {
+      const hand = available.slice(cursor, cursor + 6).map(c => c.card_id);
+      cursor += 6;
+      for (const cardId of hand) {
+        updateCard(ctx.sheets, cardId, { in_use: true });
+      }
+      updatePlayer(ctx.sheets, game.game_id, player.user_id, { hand });
+    }
+
+    const firstStorytellerId = players[0].user_id;
+    updateGame(ctx.sheets, game.game_id, {
+      status: "active",
+      current_round: 1,
+      storyteller_id: firstStorytellerId,
+    });
+
     await ctx.reply(t("game.started", lang));
+
+    const dealtPlayers = players.map((p, i) => ({
+      ...p,
+      hand: available.slice(i * 6, i * 6 + 6).map(c => c.card_id),
+    }));
+
+    await beginRound(
+      ctx.sheets,
+      { ...game, game_id: game.game_id, status: "active", current_round: 1, storyteller_id: firstStorytellerId },
+      1,
+      firstStorytellerId,
+      dealtPlayers,
+      lang
+    );
+  });
+
+  // Storyteller sends their clue text; bot stores it and shows card selection keyboard
+  bot.on("message:text", async (ctx) => {
+    if (!ctx.from) return;
+    const chatId = String(ctx.chat.id);
+    const userId = String(ctx.from.id);
+    const lang = "en";
+
+    const game = getActiveGameByChat(ctx.sheets, chatId);
+    if (!game || game.status !== "active") return;
+
+    const round = getCurrentRound(ctx.sheets, game.game_id);
+    if (!round || round.status !== "waiting_clue") return;
+    if (round.storyteller_id !== userId) return;
+
+    const clue = ctx.message.text;
+    pendingClues.set(round.round_id, clue);
+
+    const player = getPlayer(ctx.sheets, game.game_id, userId);
+    if (!player || player.hand.length === 0) return;
+
+    await ctx.reply(submitCardPromptMessage(clue, lang), {
+      reply_markup: cardSelectionKeyboard(game.game_id, player.hand),
+    });
   });
 
   bot.command("stats", async (ctx) => {
