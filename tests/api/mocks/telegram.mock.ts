@@ -7,15 +7,27 @@ export interface CapturedSendMessage {
   parse_mode?: string;
 }
 
-// Captures every sendMessage call made during a test.
+export interface CapturedCallbackAnswer {
+  callback_query_id: string;
+  text?: string;
+  show_alert?: boolean;
+}
+
+// Captures every sendMessage and answerCallbackQuery call made during a test.
 export function createTelegramServer() {
-  const captured: CapturedSendMessage[] = [];
+  const messages: CapturedSendMessage[] = [];
+  const callbackAnswers: CapturedCallbackAnswer[] = [];
 
   const handlers = [
     http.post(/https:\/\/api\.telegram\.org\/bot.*\/sendMessage/, async ({ request }) => {
       const body = (await request.json()) as CapturedSendMessage;
-      captured.push(body);
+      messages.push(body);
       return HttpResponse.json({ ok: true, result: { message_id: 1 } });
+    }),
+    http.post(/https:\/\/api\.telegram\.org\/bot.*\/answerCallbackQuery/, async ({ request }) => {
+      const body = (await request.json()) as CapturedCallbackAnswer;
+      callbackAnswers.push(body);
+      return HttpResponse.json({ ok: true, result: true });
     }),
   ];
 
@@ -25,11 +37,16 @@ export function createTelegramServer() {
     server,
     /** All sendMessage calls captured so far. */
     get messages() {
-      return captured;
+      return messages;
     },
-    /** Reset captured messages between tests. */
+    /** All answerCallbackQuery calls captured so far. */
+    get callbackAnswers() {
+      return callbackAnswers;
+    },
+    /** Reset all captured calls between tests. */
     reset() {
-      captured.length = 0;
+      messages.length = 0;
+      callbackAnswers.length = 0;
     },
   };
 }
