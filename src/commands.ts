@@ -1,8 +1,12 @@
 import { Bot, Context } from "grammy";
 import { ISheetsClient } from "./sheets/client";
 import { t } from "./i18n/index";
-import { getActiveGameByChat, createGame as createGameRecord, updateGame } from "./sheets/games";
-import { getPlayer, createPlayer, getGamePlayers } from "./sheets/players";
+import { getGame, getActiveGameByChat, createGame as createGameRecord, updateGame } from "./sheets/games";
+import { getPlayer, createPlayer, getGamePlayers, updatePlayer } from "./sheets/players";
+import { getCurrentRound, updateRound } from "./sheets/rounds";
+import type { RoundRecord } from "./sheets/rounds";
+import { submitCard, submitVote } from "./game/rounds";
+import type { RoundState } from "./game/rounds";
 import { getLeaderboardEntry, getTopPlayers } from "./sheets/leaderboard";
 import { addPlayer, startGame } from "./game/engine";
 import { GameState, GamePlayer } from "./game/state";
@@ -31,6 +35,123 @@ function gameRecordToState(game: GameRecord, players: PlayerRecord[]): GameState
 
 function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function roundRecordToState(
+  round: RoundRecord,
+  game: GameRecord,
+  players: PlayerRecord[]
+): RoundState {
+  return {
+    roundId: round.round_id,
+    gameId: round.game_id,
+    roundNum: round.round_num,
+    phase: round.status,
+    storytellerId: game.storyteller_id,
+    playerIds: players.map(p => p.user_id),
+    clue: round.clue || null,
+    storytellerCardId: round.storyteller_card || null,
+    submissions: round.submissions,
+    votes: round.votes,
+  };
+}
+
+export function registerCallbacks(bot: Bot<DixitContext>): void {
+  // select_card:{gameId}:{cardId} — player submits a card for the current round
+  bot.callbackQuery(/^select_card:/, async (ctx) => {
+    const [, gameId, cardId] = ctx.callbackQuery.data.split(":");
+    const userId = String(ctx.from.id);
+    const lang = "en";
+
+    const game = getGame(ctx.sheets, gameId);
+    if (!game) {
+      await ctx.answerCallbackQuery({ text: t("game.not_found", lang) });
+      return;
+    }
+    if (game.status === "ended") {
+      await ctx.answerCallbackQuery({ text: t("callback.game_ended", lang) });
+      return;
+    }
+
+    const roundRecord = getCurrentRound(ctx.sheets, gameId);
+    if (!roundRecord) {
+      await ctx.answerCallbackQuery({ text: t("error.generic", lang) });
+      return;
+    }
+
+    const players = getGamePlayers(ctx.sheets, gameId);
+    const roundState = roundRecordToState(roundRecord, game, players);
+    const result = submitCard(roundState, userId, cardId);
+
+    if (!result.ok) {
+      const key = result.error === "already_submitted" ? "callback.already_submitted" : "error.generic";
+      await ctx.answerCallbackQuery({ text: t(key, lang) });
+      return;
+    }
+
+    updateRound(ctx.sheets, roundRecord.round_id, {
+      submissions: result.state.submissions,
+      status: result.state.phase,
+    });
+    await ctx.answerCallbackQuery({ text: t("callback.card_selected", lang) });
+  });
+
+  // vote_card:{gameId}:{cardId} — player votes for the storyteller's card
+  bot.callbackQuery(/^vote_card:/, async (ctx) => {
+    const [, gameId, cardId] = ctx.callbackQuery.data.split(":");
+    const userId = String(ctx.from.id);
+    const lang = "en";
+
+    const game = getGame(ctx.sheets, gameId);
+    if (!game) {
+      await ctx.answerCallbackQuery({ text: t("game.not_found", lang) });
+      return;
+    }
+    if (game.status === "ended") {
+      await ctx.answerCallbackQuery({ text: t("callback.game_ended", lang) });
+      return;
+    }
+
+    const roundRecord = getCurrentRound(ctx.sheets, gameId);
+    if (!roundRecord) {
+      await ctx.answerCallbackQuery({ text: t("error.generic", lang) });
+      return;
+    }
+
+    const players = getGamePlayers(ctx.sheets, gameId);
+    const roundState = roundRecordToState(roundRecord, game, players);
+    const result = submitVote(roundState, userId, cardId);
+
+    if (!result.ok) {
+      const key = result.error === "already_voted" ? "callback.already_voted" : "error.generic";
+      await ctx.answerCallbackQuery({ text: t(key, lang) });
+      return;
+    }
+
+    updateRound(ctx.sheets, roundRecord.round_id, {
+      votes: result.state.votes,
+      status: result.state.phase,
+    });
+    await ctx.answerCallbackQuery({ text: t("callback.vote_recorded", lang) });
+  });
+
+  // set_lang:{gameId}:{lang} — player switches their language preference
+  bot.callbackQuery(/^set_lang:/, async (ctx) => {
+    const parts = ctx.callbackQuery.data.split(":");
+    const gameId = parts[1];
+    const rawLang = parts[2];
+    const newLang = rawLang === "fa" ? "fa" : "en";
+    const userId = String(ctx.from.id);
+
+    const game = getGame(ctx.sheets, gameId);
+    if (!game) {
+      await ctx.answerCallbackQuery({ text: t("game.not_found", "en") });
+      return;
+    }
+
+    updatePlayer(ctx.sheets, gameId, userId, { lang: newLang });
+    await ctx.answerCallbackQuery({ text: t("player.lang_set", newLang) });
+  });
 }
 
 export function registerCommands(bot: Bot<DixitContext>): void {
@@ -204,5 +325,6 @@ export function createBot(
     await next();
   });
   registerCommands(bot);
+  registerCallbacks(bot);
   return bot;
 }
