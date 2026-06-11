@@ -18,6 +18,7 @@ export const en: Record<string, string> = {
   // round
   "round.start": "Round {{round}} begins!",
   "round.give_clue": "{{username}}, you are the storyteller. Send a clue for your card.",
+  "round.clue_first": "Please send your clue text first, then select a card.",
   "round.submit_card": "Choose a card that fits the clue: {{clue}}",
   "round.waiting_submissions": "Waiting for {{count}} more player(s) to submit a card.",
   "round.vote": "All cards are in! Vote for the storyteller's card.",

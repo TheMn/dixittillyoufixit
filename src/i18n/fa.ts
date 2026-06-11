@@ -18,6 +18,7 @@ export const fa: Record<string, string> = {
   // round
   "round.start": "دور {{round}} شروع شد!",
   "round.give_clue": "{{username}}، تو داستان‌پرداز هستی. یک سرنخ برای کارتت بفرست.",
+  "round.clue_first": "لطفاً ابتدا متن سرنخ خود را ارسال کنید، سپس یک کارت انتخاب کنید.",
   "round.submit_card": "یک کارت که با سرنخ «{{clue}}» مناسب است انتخاب کن.",
   "round.waiting_submissions": "منتظر {{count}} بازیکن دیگر برای ارسال کارت هستیم.",
   "round.vote": "همه کارت‌ها آماده‌اند! برای کارت داستان‌پرداز رأی بده.",
