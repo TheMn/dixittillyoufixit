@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "check-types": "tsc --noEmit --project tsconfig.build.json",
-    "build": "tsc --noEmit --project tsconfig.build.json && esbuild src/main.ts --bundle --target=es2015 --outfile=dist/index.js --format=cjs --tree-shaking=false",
+    "build": "tsc --noEmit --project tsconfig.build.json && esbuild src/main.ts --bundle --target=es2019 --supported:async-generator=false --outfile=dist/index.js --format=cjs --tree-shaking=false --inject:src/gas-polyfills.js",
     "start": "node dist/index.js",
     "deploy": "./scripts/deploy.sh",
     "test:unit": "vitest run --project unit",

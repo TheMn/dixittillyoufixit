@@ -43,6 +43,20 @@ const storytellerId = roundRecord.storyteller_id;
 
 ---
 
+## esbuild: use `--target=es2019 --supported:async-generator=false` for GAS
+
+**Rule:** The GAS-targeted build command must be:
+```
+esbuild ... --target=es2019 --supported:async-generator=false
+```
+
+**Why two flags are both needed:**
+- `--target=es2015` (old default): compiles ALL async/await to generator helpers — doPost returns a plain Promise that GAS ignores, so the bot never replies
+- `--target=es2019` alone: keeps native async/await ✅ but also keeps `async function*` (async generators) which grammY's file-streaming code uses — GAS V8 can't parse them and throws `ParseError: Unexpected token *`, rejecting the entire bundle
+- `--target=es2019 --supported:async-generator=false`: keeps native `async function` for doPost ✅ and compiles `async function*` down to generator helpers ✅ — the only combination that works in GAS
+
+---
+
 ## GAS `doPost` must be `async` and `await` the bot
 
 **Rule:** Always declare `doPost` as `async` and `await bot.handleUpdate(update)`.
