@@ -30,6 +30,13 @@ export const en: Record<string, string> = {
   "scoring.correct_guess": "+3 for {{username}} (correct guess)",
   "scoring.bonus_vote": "+{{votes}} bonus vote(s) for {{username}}",
 
+  // callback responses
+  "callback.card_selected": "Card selected!",
+  "callback.vote_recorded": "Vote recorded!",
+  "callback.already_submitted": "You have already submitted a card.",
+  "callback.already_voted": "You have already voted.",
+  "callback.game_ended": "This game has already ended.",
+
   // error
   "error.generic": "Something went wrong. Please try again.",
   "error.unknown_command": "Unknown command. Use /help for available commands.",

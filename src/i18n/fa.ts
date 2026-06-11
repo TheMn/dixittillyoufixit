@@ -30,6 +30,13 @@ export const fa: Record<string, string> = {
   "scoring.correct_guess": "{{username}} +۳ (حدس درست)",
   "scoring.bonus_vote": "{{username}} +{{votes}} رأی اضافی",
 
+  // callback responses
+  "callback.card_selected": "کارت انتخاب شد!",
+  "callback.vote_recorded": "رأی ثبت شد!",
+  "callback.already_submitted": "شما قبلاً یک کارت ارسال کرده‌اید.",
+  "callback.already_voted": "شما قبلاً رأی داده‌اید.",
+  "callback.game_ended": "این بازی قبلاً تمام شده است.",
+
   // error
   "error.generic": "مشکلی پیش آمد. لطفاً دوباره تلاش کنید.",
   "error.unknown_command": "دستور ناشناخته. از /help برای راهنمایی استفاده کنید.",
