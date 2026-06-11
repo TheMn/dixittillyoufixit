@@ -151,7 +151,7 @@
 ## PHASE 3 — Sheets Integration
 
 ### Task 7 — Sheets Modules (All CRUD)
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Feature + Integration Tests
 **Tests**: Integration (real test sheet), Unit (mocked)
 
@@ -376,8 +376,8 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 | 3 | Sheets Client | Foundation | Unit, Integration | ✅ |
 | 4 | Scoring Algorithm | Game Engine | Unit (exhaustive) | ✅ |
 | 5 | Game Engine | Game Engine | Unit | ✅ |
-| 6 | Round Lifecycle | Game Engine | Unit, Integration | ⬜ |
-| 7 | Sheets CRUD | Sheets | Integration, Unit | ⬜ |
+| 6 | Round Lifecycle | Game Engine | Unit, Integration | ✅ |
+| 7 | Sheets CRUD | Sheets | Integration, Unit | ✅ |
 | 8 | Bot Commands | Telegram | API (msw) | ⬜ |
 | 9 | Keyboards & Callbacks | Telegram | API (msw) | ⬜ |
 | 10 | Full Message Flow | Telegram | Integration | ⬜ |
