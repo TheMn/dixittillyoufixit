@@ -43,6 +43,27 @@ const storytellerId = roundRecord.storyteller_id;
 
 ---
 
+## GAS `doPost` must be `async` and `await` the bot
+
+**Rule:** Always declare `doPost` as `async` and `await bot.handleUpdate(update)`.
+
+**Why:** GAS terminates the script the moment `doPost` returns. A synchronous function with `void bot.handleUpdate(update)` (fire-and-forget) exits immediately — GAS kills the execution before any `ctx.reply()` or `UrlFetchApp.fetch()` runs. The bot receives the update but never responds. This was the reason the deployed bot was completely silent even though all code paths were correct.
+
+**How to apply:**
+```typescript
+// ✅ Correct
+(globalThis as any).doPost = async function (e): Promise<void> {
+  await bot.handleUpdate(update);
+};
+
+// ❌ Wrong — GAS kills execution before Promise resolves
+(globalThis as any).doPost = function (e): void {
+  void bot.handleUpdate(update);
+};
+```
+
+---
+
 ## `/startgame` card dealing must be non-fatal
 
 **Rule:** Deal however many cards are available and proceed. Never abort the start flow because the deck is short or empty.

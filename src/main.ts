@@ -4,10 +4,10 @@ import { TELEGRAM_TOKEN } from "./vars";
 
 // GAS webhook entry point — receives all incoming Telegram updates
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).doPost = function (e: { postData: { contents: string } }): void {
+(globalThis as any).doPost = async function (e: { postData: { contents: string } }): Promise<void> {
   const sheets = createSheetsClient();
   const bot = createBot(sheets, TELEGRAM_TOKEN);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const update = JSON.parse(e.postData.contents) as any;
-  void bot.handleUpdate(update);
+  await bot.handleUpdate(update);
 };
