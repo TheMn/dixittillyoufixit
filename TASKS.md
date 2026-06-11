@@ -173,7 +173,7 @@ Each must implement full CRUD against the schema in `CLAUDE.md`.
 ## PHASE 4 — Telegram Bot
 
 ### Task 8 — Bot Commands
-**Status**: ⬜ Todo
+**Status**: 🔄 In Progress
 **Type**: Feature + API Tests
 **Tests**: API (msw)
 
