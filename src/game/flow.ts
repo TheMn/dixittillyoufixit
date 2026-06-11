@@ -22,13 +22,14 @@ export function processRoundEnd(
   playerRecords: PlayerRecord[]
 ): ProcessRoundEndResult {
   const gameId = gameRecord.game_id;
+  const storytellerId = gameRecord.storyteller_id;
 
   // Build scoring input — scoring.ts requires a different shape from sheets types
   const scoringRound = {
-    storytellerId: roundRecord.storyteller_id,
+    storytellerId,
     storytellerCardId: roundRecord.storyteller_card,
     players: playerRecords
-      .filter(p => p.user_id !== roundRecord.storyteller_id)
+      .filter(p => p.user_id !== storytellerId)
       .map(p => ({
         id: p.user_id,
         submittedCardId: roundRecord.submissions[p.user_id] ?? "",
@@ -83,7 +84,7 @@ export function processRoundEnd(
 
   // Determine next storyteller by rotating from the current one
   const playerIds = playerRecords.map(p => p.user_id);
-  const currIdx = playerIds.indexOf(roundRecord.storyteller_id);
+  const currIdx = playerIds.indexOf(storytellerId);
   const nextIdx = (currIdx + 1) % playerIds.length;
   const nextStorytellerId = playerIds[nextIdx];
   const nextRoundNum = gameRecord.current_round + 1;
