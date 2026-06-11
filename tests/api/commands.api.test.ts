@@ -4,26 +4,16 @@ import { MockSheetsClient } from "../../src/sheets/client";
 import { createGame as createGameRecord } from "../../src/sheets/games";
 import { createPlayer } from "../../src/sheets/players";
 import { upsertLeaderboard } from "../../src/sheets/leaderboard";
-import {
-  handleStart,
-  handleNewGame,
-  handleJoin,
-  handleStartGame,
-  handleStats,
-  handleLeaderboard,
-} from "../../src/commands";
+import { createBot } from "../../src/commands";
 import { t } from "../../src/i18n/index";
 import { createTelegramServer } from "./mocks/telegram.mock";
+
+const TEST_TOKEN = "test_token_123";
 
 // ---------- helpers ----------
 
 function makeUser(id: number, username = `user${id}`): User {
-  return {
-    id,
-    is_bot: false,
-    first_name: username,
-    username,
-  };
+  return { id, is_bot: false, first_name: username, username };
 }
 
 function makeGroupChat(id: number): Chat.GroupChat {
@@ -46,7 +36,6 @@ function makeUpdate(chatId: number, userId: number, text: string, username?: str
 // ---------- test setup ----------
 
 const tg = createTelegramServer();
-process.env.TELEGRAM_BOT_TOKEN = "test_token";
 
 beforeAll(() => tg.server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => tg.server.close());
@@ -57,9 +46,8 @@ afterEach(() => tg.reset());
 describe("/start", () => {
   it("should send welcome message", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 1, "/start");
-
-    await handleStart(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/start"));
 
     expect(tg.messages).toHaveLength(1);
     expect(tg.messages[0].chat_id).toBe(100);
@@ -72,9 +60,8 @@ describe("/start", () => {
 describe("/newgame", () => {
   it("should create a game when no active game exists", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 1, "/newgame");
-
-    await handleNewGame(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/newgame"));
 
     expect(tg.messages).toHaveLength(1);
     expect(tg.messages[0].text).toBe(t("game.created", "en"));
@@ -90,9 +77,8 @@ describe("/newgame", () => {
       storyteller_id: "",
       created_at: "",
     });
-    const update = makeUpdate(100, 1, "/newgame");
-
-    await handleNewGame(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/newgame"));
 
     expect(tg.messages).toHaveLength(1);
     expect(tg.messages[0].text).toBe(t("game.already_active", "en"));
@@ -112,9 +98,8 @@ describe("/join", () => {
       storyteller_id: "",
       created_at: "",
     });
-    const update = makeUpdate(100, 42, "/join", "alice");
-
-    await handleJoin(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 42, "/join", "alice"));
 
     expect(tg.messages).toHaveLength(1);
     expect(tg.messages[0].text).toBe(t("player.joined", "en", { username: "alice" }));
@@ -122,9 +107,8 @@ describe("/join", () => {
 
   it("should reject when no active game in chat", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 42, "/join");
-
-    await handleJoin(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 42, "/join"));
 
     expect(tg.messages[0].text).toBe(t("game.not_found", "en"));
   });
@@ -147,9 +131,8 @@ describe("/join", () => {
       score: 0,
       lang: "en",
     });
-    const update = makeUpdate(100, 42, "/join", "alice");
-
-    await handleJoin(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 42, "/join", "alice"));
 
     expect(tg.messages[0].text).toBe(t("player.already_joined", "en"));
   });
@@ -174,9 +157,8 @@ describe("/join", () => {
         lang: "en",
       });
     }
-    const update = makeUpdate(100, 99, "/join", "latecomer");
-
-    await handleJoin(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 99, "/join", "latecomer"));
 
     expect(tg.messages[0].text).toBe(t("player.full", "en"));
   });
@@ -205,9 +187,8 @@ describe("/startgame", () => {
         lang: "en",
       });
     }
-    const update = makeUpdate(100, 1, "/startgame");
-
-    await handleStartGame(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/startgame"));
 
     expect(tg.messages[0].text).toBe(t("game.started", "en"));
   });
@@ -230,18 +211,16 @@ describe("/startgame", () => {
       score: 0,
       lang: "en",
     });
-    const update = makeUpdate(100, 1, "/startgame");
-
-    await handleStartGame(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/startgame"));
 
     expect(tg.messages[0].text).toBe(t("game.not_enough_players", "en"));
   });
 
   it("should reject when no active game in chat", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 1, "/startgame");
-
-    await handleStartGame(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/startgame"));
 
     expect(tg.messages[0].text).toBe(t("game.not_found", "en"));
   });
@@ -260,9 +239,8 @@ describe("/stats", () => {
       total_score: 47,
       last_played: "",
     });
-    const update = makeUpdate(100, 42, "/stats", "alice");
-
-    await handleStats(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 42, "/stats", "alice"));
 
     expect(tg.messages).toHaveLength(1);
     expect(tg.messages[0].text).toContain("alice");
@@ -271,9 +249,8 @@ describe("/stats", () => {
 
   it("should return empty message when player has no stats", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 99, "/stats");
-
-    await handleStats(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 99, "/stats"));
 
     expect(tg.messages[0].text).toBe(t("leaderboard.empty", "en"));
   });
@@ -294,22 +271,19 @@ describe("/leaderboard", () => {
     ];
     players.forEach(p => upsertLeaderboard(sheets, p));
 
-    const update = makeUpdate(100, 1, "/leaderboard");
-    await handleLeaderboard(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/leaderboard"));
 
     expect(tg.messages).toHaveLength(1);
     const text = tg.messages[0].text;
-    // zeta (60) should appear before beta (50)
     expect(text.indexOf("zeta")).toBeLessThan(text.indexOf("beta"));
-    // 6th player (alpha, 30) should not appear in top 5
     expect(text).not.toContain("gamma");
   });
 
   it("should return empty message when no games played", async () => {
     const sheets = new MockSheetsClient();
-    const update = makeUpdate(100, 1, "/leaderboard");
-
-    await handleLeaderboard(update, { sheets });
+    const bot = createBot(sheets, TEST_TOKEN);
+    await bot.handleUpdate(makeUpdate(100, 1, "/leaderboard"));
 
     expect(tg.messages[0].text).toBe(t("leaderboard.empty", "en"));
   });
