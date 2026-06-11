@@ -457,7 +457,7 @@ export function registerCommands(bot: Bot<DixitContext>): void {
 
     const round = getCurrentRound(ctx.sheets, game.game_id);
     if (!round || round.status !== "waiting_clue") { await next(); return; }
-    if (round.storyteller_id !== userId) { await next(); return; }
+    if (game.storyteller_id !== userId) { await next(); return; }
 
     const clue = ctx.message.text;
     pendingClues.set(round.round_id, clue);
