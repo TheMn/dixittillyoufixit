@@ -227,6 +227,7 @@ yarn test               # all of the above
 When starting a new session:
 1. Read `CLAUDE.md` (this file) fully
 2. Read `TASKS.md` and identify the current task
-3. State out loud: "I am working on Task N: [title]. It is currently [status]."
-4. Do not start a new task until the current one is marked ✅ Done in `TASKS.md`
-5. After completing a task, update `TASKS.md` status before stopping
+3. Read `LESSONS.md` — it contains hard-won lessons from past sessions (architectural traps, grammY quirks, confirmed patterns). Apply them throughout the session.
+4. State out loud: "I am working on Task N: [title]. It is currently [status]."
+5. Do not start a new task until the current one is marked ✅ Done in `TASKS.md`
+6. After completing a task, update `TASKS.md` status before stopping
