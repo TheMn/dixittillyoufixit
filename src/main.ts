@@ -7,6 +7,7 @@ import { TELEGRAM_TOKEN } from "./vars";
 (globalThis as any).doPost = function (e: { postData: { contents: string } }): void {
   const sheets = createSheetsClient();
   const bot = createBot(sheets, TELEGRAM_TOKEN);
-  const update = JSON.parse(e.postData.contents) as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const update = JSON.parse(e.postData.contents) as any;
   void bot.handleUpdate(update);
 };
