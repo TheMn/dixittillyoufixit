@@ -174,8 +174,26 @@ export function registerCommands(bot: Bot<DixitContext>): void {
   });
 }
 
-export function createBot(sheets: ISheetsClient, token: string): Bot<DixitContext> {
-  const bot = new Bot<DixitContext>(token);
+const STUB_BOT_INFO = {
+  id: 0,
+  is_bot: true as const,
+  first_name: "DixitBot",
+  username: "DixitBot",
+  can_join_groups: true,
+  can_read_all_group_messages: false,
+  supports_inline_queries: false,
+};
+
+export function createBot(
+  sheets: ISheetsClient,
+  token: string,
+  // Allow overriding fetch so MSW (native fetch) can intercept in tests.
+  fetchFn?: typeof fetch
+): Bot<DixitContext> {
+  const bot = new Bot<DixitContext>(token, {
+    botInfo: STUB_BOT_INFO,
+    client: fetchFn ? { fetch: fetchFn } : undefined,
+  });
   bot.use(async (ctx, next) => {
     ctx.sheets = sheets;
     await next();
