@@ -1,9 +1,11 @@
 import { TELEGRAM_URL } from "../vars";
+import type { InlineKeyboardMarkup } from "grammy/types";
 
 export interface SendMessageParams {
   chat_id: string | number;
   text: string;
   parse_mode?: "HTML" | "Markdown";
+  reply_markup?: InlineKeyboardMarkup;
 }
 
 export async function sendMessage(params: SendMessageParams): Promise<void> {

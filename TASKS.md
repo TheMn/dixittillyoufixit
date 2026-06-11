@@ -219,7 +219,7 @@ Each must implement full CRUD against the schema in `CLAUDE.md`.
 ---
 
 ### Task 10 — Full Message Flow
-**Status**: ⬜ Todo
+**Status**: 🔄 In Progress
 **Type**: Feature + Integration Tests
 **Tests**: Integration (full round simulation)
 
@@ -380,7 +380,7 @@ Script to bulk-upload Dixit card images to Telegram (via bot sendPhoto) and save
 | 7 | Sheets CRUD | Sheets | Integration, Unit | ✅ |
 | 8 | Bot Commands | Telegram | API (msw) | ✅ |
 | 9 | Keyboards & Callbacks | Telegram | API (msw) | ✅ |
-| 10 | Full Message Flow | Telegram | Integration | ⬜ |
+| 10 | Full Message Flow | Telegram | Integration | 🔄 |
 | 11 | Playwright Setup + E2E Round | E2E | Playwright | ⬜ |
 | 12 | Leaderboard E2E | E2E | Playwright | ⬜ |
 | 13 | CI Pipeline | CI/CD | All suites | ⬜ |
