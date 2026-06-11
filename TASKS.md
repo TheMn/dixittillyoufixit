@@ -127,7 +127,7 @@
 ---
 
 ### Task 6 — Round Lifecycle
-**Status**: ⬜ Todo
+**Status**: ✅ Done
 **Type**: Feature + Unit + Integration Tests
 **Tests**: Unit + Integration
 
