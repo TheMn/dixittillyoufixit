@@ -23,12 +23,15 @@ function makeGroupChat(id: number): Chat.GroupChat {
 function makeUpdate(chatId: number, userId: number, text: string, username?: string): Update {
   const user = makeUser(userId, username);
   const chat = makeGroupChat(chatId);
+  // grammy matches commands via entities, not just text content.
+  const commandPart = text.split(" ")[0];
   const message = {
     message_id: 1,
     date: 0,
     chat,
     from: user,
     text,
+    entities: [{ type: "bot_command", offset: 0, length: commandPart.length }],
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { update_id: 1, message } as unknown as Update;
